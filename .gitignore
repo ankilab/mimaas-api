@@ -1,2 +1,9 @@
 mimaas.egg-info
 __pycache__
+
+all_artifacts.zip
+power_samples.zip
+ppk2_samples.csv
+power.csv
+ram.json
+selfmade_model.tflite
