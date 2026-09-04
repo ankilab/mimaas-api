@@ -469,7 +469,8 @@ class MIMaaSClient:
         self,
         request_id: int,
         timeout: int = 600,
-        poll_interval: int = 5
+        poll_interval: int = 5,
+        verbose: bool = False
     ) -> Results:
         """
         Wait for request to complete (blocking).
@@ -478,6 +479,8 @@ class MIMaaSClient:
             request_id: Request ID
             timeout: Maximum time to wait in seconds (default: 600)
             poll_interval: Polling interval in seconds (default: 5)
+            verbose: Print each status change (pending -> processing -> done/error)
+                along with elapsed time, so long waits aren't silent (default: False)
 
         Returns:
             Results object
@@ -487,9 +490,14 @@ class MIMaaSClient:
             ProcessingError: Request failed with error
         """
         start_time = time.time()
+        last_status = None
 
         while True:
             request = self.get_request(request_id)
+
+            if verbose and request.status != last_status:
+                print(f"[{time.time() - start_time:6.1f}s] Request #{request_id}: {request.status}")
+                last_status = request.status
 
             if request.is_successful:
                 if request.results:
