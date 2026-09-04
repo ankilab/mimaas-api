@@ -141,9 +141,11 @@ class Request:
     status: str  # "pending", "processing", "done", "error"
     board: str
     quantize: bool
-    network_path: Optional[str]
+    model_filename: Optional[str]
     folder_name: Optional[str]
     error_message: Optional[str]
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
     results: Optional[Results] = None
 
     @property
@@ -186,9 +188,11 @@ class Request:
             status=data['status'],
             board=data['board'],
             quantize=data.get('quantize', False),
-            network_path=data.get('network'),
+            model_filename=data.get('filename'),
             folder_name=data.get('folder_name'),
             error_message=data.get('error_message'),
+            created_at=_parse_iso8601(data.get('created_at')),
+            updated_at=_parse_iso8601(data.get('updated_at')),
             results=results
         )
 
@@ -199,6 +203,16 @@ class Request:
         elif self.is_successful and self.results:
             status_str += f"\n  {self.results}"
         return status_str
+
+
+def _parse_iso8601(value: Optional[str]) -> Optional[datetime]:
+    """Parse the API's ISO8601 timestamps, tolerating a trailing 'Z'."""
+    if not value:
+        return None
+    try:
+        return datetime.fromisoformat(value.replace('Z', '+00:00'))
+    except ValueError:
+        return None
 
 
 @dataclass
