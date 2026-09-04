@@ -1,20 +1,26 @@
 # MIMaaS Python SDK
 
-Python client library for the MIMaaS (Microcontroller Model as a Service) API. Submit TensorFlow Lite models, benchmark them on real microcontroller hardware, and get back detailed performance metrics — all without touching a single board.
+Python client library for the MIMaaS (Microcontroller Model as a Service) API. Submit TensorFlow Lite models, benchmark them on real microcontroller hardware, and get back detailed performance metrics.
 
 ## Installation
+
+First, clone this repository onto your local machine. Then:
 
 ```bash
 pip install -e .
 ```
 
-With power analysis visualization:
+<!-- With power analysis visualization:
 
 ```bash
 pip install -e ".[viz]"
-```
+``` -->
 
 ## Quick Start
+
+Please have a look at the notebook provided in this repo to see how to use MIMAAS inside of your code environment.
+
+Otherwise, you can always use the API directly in the IDE of your choice. 
 
 ```python
 from mimaas import MIMaaSClient
@@ -23,7 +29,7 @@ client = MIMaaSClient()
 client.login("your_username", "your_password")
 
 # Submit a model for evaluation
-request = client.submit_request("model.tflite", "nrf5340dk")
+request = client.submit_request("yourmodel.tflite", "nrf5340dk")
 
 # Wait for results
 results = client.wait_for_completion(request.id)
@@ -41,45 +47,28 @@ Results:
   Flash: 112.5 KB
 ```
 
-## Configuration
-
-The client resolves settings in this order (first match wins):
-
-| Priority | Source | Example |
-|----------|--------|---------|
-| 1 | Constructor arguments | `MIMaaSClient(api_url="...")` |
-| 2 | Environment variables | `MIMAAS_API_URL`, `MIMAAS_API_TOKEN`, `MIMAAS_TIMEOUT` |
-| 3 | Config file | `~/.mimaas/config.yaml` |
-| 4 | Defaults | Built-in defaults |
-
-Config file example (`~/.mimaas/config.yaml`):
-
-```yaml
-api_url: https://api.mimaas.com
-timeout: 120
-```
 
 ## Usage
 
 ### Account Management
 
 ```python
-# Register a new account
-client.register(
-    username="johndoe",
-    email="john@example.com",
-    first_name="John",
-    surname="Doe",
-    password="secure_password",
-    plan="free"
+# Register a new account (invite_token is a single-use token from an admin)
+# Registration requires a single-use invite token from an admin.
+api_token = client.register(
+    username="my_username",
+    email="my_email@provider.com",
+    first_name="Myname",
+    surname="Mysurname",
+    password="MySecretPassword1!",  # Pwd needs Capital letters, special characters and a number
+    invite_token="my_token",
 )
 
 # Check your profile and remaining runs
 profile = client.get_profile()
 print(f"Runs remaining: {profile.available_runs}")
 
-# View available plans
-plans = client.list_plans()
+
 ```
 
 ### Browse Available Boards
@@ -94,7 +83,7 @@ board = client.get_board("nrf5340dk")
 status = client.get_board_status("nrf5340dk")
 ```
 
-### Submit and Track Requests
+### Submit and See Requests
 
 ```python
 # Validate before submitting (does not consume a run)
@@ -130,7 +119,7 @@ client.download_all_artifacts(request.id, "artifacts.zip")
 
 ### Power Analysis Visualization
 
-Requires the `viz` extra (`pip install -e ".[viz]"`).
+<!-- Requires the `viz` extra (`pip install -e ".[viz]"`). -->
 
 ```python
 from mimaas.viz import plot_power_analysis
@@ -139,4 +128,4 @@ fig = plot_power_analysis("ppk2_samples.csv")
 fig.show()
 ```
 
-Generates an interactive Plotly dashboard with current draw over time, distribution histograms, and per-inference statistics.
+Generates a simple, interactive dashboard with current draw over time. Intended for inital visualization of the results.
