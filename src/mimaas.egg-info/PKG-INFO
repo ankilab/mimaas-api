@@ -1,12 +1,14 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.1
 Name: mimaas
 Version: 0.1.0
 Summary: Python client library for the MIMaaS API - Microcontroller Model as a Service
 Home-page: https://github.com/YOUR_USERNAME/mimaas-api
 Author: MIMaaS Team
 Author-email: contact@mimaas.com
+License: UNKNOWN
 Project-URL: Bug Tracker, https://github.com/YOUR_USERNAME/mimaas-api/issues
 Project-URL: Documentation, https://mimaas.com/docs
+Platform: UNKNOWN
 Classifier: Development Status :: 4 - Beta
 Classifier: Intended Audience :: Developers
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
@@ -20,27 +22,149 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Requires-Python: >=3.8
 Description-Content-Type: text/markdown
-Requires-Dist: requests>=2.25.0
-Requires-Dist: pyyaml>=5.4.0
-Provides-Extra: viz
-Requires-Dist: pandas>=1.3.0; extra == "viz"
-Requires-Dist: plotly>=5.0.0; extra == "viz"
 Provides-Extra: dev
-Requires-Dist: pytest>=7.0.0; extra == "dev"
-Requires-Dist: pytest-cov>=3.0.0; extra == "dev"
-Requires-Dist: black>=22.0.0; extra == "dev"
-Requires-Dist: flake8>=4.0.0; extra == "dev"
-Requires-Dist: mypy>=0.950; extra == "dev"
-Dynamic: author
-Dynamic: author-email
-Dynamic: classifier
-Dynamic: description
-Dynamic: description-content-type
-Dynamic: home-page
-Dynamic: project-url
-Dynamic: provides-extra
-Dynamic: requires-dist
-Dynamic: requires-python
-Dynamic: summary
+Provides-Extra: viz
 
-# mimaas-api
+# MIMaaS Python SDK
+
+Python client library for the MIMaaS (Microcontroller Model as a Service) API. Submit TensorFlow Lite models, benchmark them on real microcontroller hardware, and get back detailed performance metrics
+
+## Installation
+
+```bash
+pip install -e .
+```
+
+With power analysis visualization:
+
+```bash
+pip install -e ".[viz]"
+```
+
+## Quick Start
+
+```python
+from mimaas import MIMaaSClient
+
+client = MIMaaSClient()
+client.login("your_username", "your_password")
+
+# Submit a model for evaluation
+request = client.submit_request("model.tflite", "nrf5340dk")
+
+# Wait for results
+results = client.wait_for_completion(request.id)
+print(results)
+```
+
+**Output:**
+
+```
+Results:
+  Inference Time: 12.34 ms
+  Energy: 45.67 µJ
+  Power: 3702.10 µW
+  RAM: 48.2 KB
+  Flash: 112.5 KB
+```
+
+## Configuration
+
+The client resolves settings in this order (first match wins):
+
+| Priority | Source | Example |
+|----------|--------|---------|
+| 1 | Constructor arguments | `MIMaaSClient(api_url="...")` |
+| 2 | Environment variables | `MIMAAS_API_URL`, `MIMAAS_API_TOKEN`, `MIMAAS_TIMEOUT` |
+| 3 | Config file | `~/.mimaas/config.yaml` |
+| 4 | Defaults | Built-in defaults |
+
+Config file example (`~/.mimaas/config.yaml`):
+
+```yaml
+api_url: https://api.mimaas.com
+timeout: 120
+```
+
+## Usage
+
+### Account Management
+
+```python
+# Register a new account
+client.register(
+    username="johndoe",
+    email="john@example.com",
+    first_name="John",
+    surname="Doe",
+    password="secure_password",
+    plan="free"
+)
+
+# Check your profile and remaining runs
+profile = client.get_profile()
+print(f"Runs remaining: {profile.available_runs}")
+
+# View available plans
+plans = client.list_plans()
+```
+
+### Browse Available Boards
+
+```python
+boards = client.list_boards()
+for board in boards:
+    print(board)
+
+# Check a specific board
+board = client.get_board("nrf5340dk")
+status = client.get_board_status("nrf5340dk")
+```
+
+### Submit and Track Requests
+
+```python
+# Validate before submitting (does not consume a run)
+result = client.validate_model("model.tflite", "nrf5340dk")
+
+# Submit for evaluation
+request = client.submit_request("model.tflite", "nrf5340dk", quantize=False)
+
+# Poll manually
+req = client.get_request(request.id)
+print(req.status)  # "pending" | "processing" | "done" | "error"
+
+# Or block until done
+results = client.wait_for_completion(request.id, timeout=600)
+
+# List past requests
+all_requests = client.list_requests()
+done = client.list_requests(status="done", board="nrf5340dk")
+```
+
+### Download Artifacts
+
+```python
+client.download_ram_report(request.id, "ram.json")
+client.download_rom_report(request.id, "rom.json")
+client.download_power_summary(request.id, "ppk2_summary.csv")
+client.download_power_samples(request.id, "ppk2_samples.csv")
+client.download_model(request.id, "model.tflite")
+
+# Or grab everything at once
+client.download_all_artifacts(request.id, "artifacts.zip")
+```
+
+### Power Analysis Visualization
+
+Requires the `viz` extra (`pip install -e ".[viz]"`).
+
+```python
+from mimaas.viz import plot_power_analysis
+
+fig = plot_power_analysis("ppk2_samples.csv")
+fig.show()
+```
+
+Generates an interactive Plotly dashboard with current draw over time, distribution histograms, and per-inference statistics.
+

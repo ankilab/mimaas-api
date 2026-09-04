@@ -73,7 +73,7 @@ class MIMaaSClient:
 
         Args:
             method: HTTP method (GET, POST, etc.)
-            endpoint: API endpoint (e.g., '/api/boards')
+            endpoint: API endpoint (e.g., '/boards')
             require_auth: Whether authentication is required
             **kwargs: Additional arguments for requests
 
@@ -277,7 +277,7 @@ class MIMaaSClient:
         Returns:
             List of Board objects
         """
-        response = self._make_request('GET', '/api/boards')
+        response = self._make_request('GET', '/boards')
         data = response.json()
         return [Board.from_dict(board) for board in data['boards']]
 
@@ -294,7 +294,7 @@ class MIMaaSClient:
         Raises:
             ResourceNotFoundError: Board not found
         """
-        response = self._make_request('GET', f'/api/boards/{board_name}')
+        response = self._make_request('GET', f'/boards/{board_name}')
         return Board.from_dict(response.json())
 
     def get_board_status(self, board_name: str) -> Dict[str, Any]:
@@ -307,7 +307,7 @@ class MIMaaSClient:
         Returns:
             Dictionary with status information
         """
-        response = self._make_request('GET', f'/api/boards/{board_name}/status')
+        response = self._make_request('GET', f'/boards/{board_name}/status')
         return response.json()
 
     # Request Methods
@@ -350,7 +350,7 @@ class MIMaaSClient:
 
             response = self._make_request(
                 'POST',
-                '/api/requests/',
+                '/requests/',
                 require_auth=True,
                 files=files,
                 data=data
@@ -396,7 +396,7 @@ class MIMaaSClient:
         try:
             response = self._make_request(
                 'PATCH',
-                f'/api/requests/{request_id}',
+                f'/requests/{request_id}',
                 require_auth=True,
                 files=files,
                 data=data if data else None
@@ -420,7 +420,7 @@ class MIMaaSClient:
         Raises:
             ResourceNotFoundError: Request not found
         """
-        response = self._make_request('GET', f'/api/requests/{request_id}', require_auth=True)
+        response = self._make_request('GET', f'/requests/{request_id}', require_auth=True)
         return Request.from_dict(response.json())
 
     def list_requests(
@@ -446,7 +446,7 @@ class MIMaaSClient:
 
         response = self._make_request(
             'GET',
-            '/api/requests/',
+            '/requests/',
             require_auth=True,
             params=params
         )
@@ -462,7 +462,7 @@ class MIMaaSClient:
         Returns:
             True if deleted successfully
         """
-        self._make_request('DELETE', f'/api/requests/{request_id}', require_auth=True)
+        self._make_request('DELETE', f'/requests/{request_id}', require_auth=True)
         return True
 
     def wait_for_completion(
@@ -565,7 +565,7 @@ class MIMaaSClient:
 
         response = self._make_request(
             'GET',
-            f'/api/requests/{request_id}/artifacts/{artifact_type}',
+            f'/requests/{request_id}/artifacts/{artifact_type}',
             require_auth=True,
             stream=True
         )
@@ -600,7 +600,7 @@ class MIMaaSClient:
 
             response = self._make_request(
                 'POST',
-                '/api/validate',
+                '/validate',
                 require_auth=True,
                 files=files,
                 data=data
@@ -617,6 +617,6 @@ class MIMaaSClient:
         Returns:
             List of Plan objects
         """
-        response = self._make_request('GET', '/api/plans')
+        response = self._make_request('GET', '/plans')
         data = response.json()
         return [Plan.from_dict(plan) for plan in data['plans']]

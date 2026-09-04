@@ -18,9 +18,7 @@ class Config:
     """Configuration manager for MIMaaS API client"""
 
     # Defaults
-    # Update this to your production domain once TLS is in place, e.g.:
-    #   DEFAULT_API_URL = "https://mimaas.yourlab.org"
-    DEFAULT_API_URL = "https://your-mimaas-domain.example.com"
+    DEFAULT_API_URL = "https://www.mimaas.forschung.fau.de/api"
     DEFAULT_TOKEN_FILE = "~/.mimaas/token"
     DEFAULT_CONFIG_FILE = "~/.mimaas/config.yaml"
     DEFAULT_TIMEOUT = 120  # seconds
