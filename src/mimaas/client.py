@@ -279,7 +279,56 @@ class MIMaaSClient:
         """
         response = self._make_request('GET', '/boards')
         data = response.json()
-        return [Board.from_dict(board) for board in data['boards']]
+        boards = [Board.from_dict(board) for board in data['boards']]
+
+        # The server lists physical boards; count the idle ones per board type
+        idle_per_type: Dict[str, int] = {}
+        for b in boards:
+            idle = b.utilization is not None and b.utilization.status == "idle"
+            idle_per_type[b.board_type] = idle_per_type.get(b.board_type, 0) + idle
+        for b in boards:
+            if b.utilization is not None:
+                b.available_count = idle_per_type[b.board_type]
+        return boards
+
+    def board_utilization(self, show: bool = True) -> List[Dict[str, Any]]:
+        """
+        Summarize how busy each board type is.
+
+        All boards of a type share one queue, so requests are submitted by board type
+        and the next free board of that type picks them up.
+
+        Args:
+            show: Print the summary as a table (default: True)
+
+        Returns:
+            One dict per board type with keys: board_type, online, idle, busy, offline,
+            queued, processing
+        """
+        summary: Dict[str, Dict[str, Any]] = {}
+        for b in self.list_boards():
+            entry = summary.setdefault(b.board_type, {
+                "board_type": b.board_type, "online": 0, "idle": 0, "busy": 0,
+                "offline": 0, "queued": 0, "processing": 0,
+            })
+            u = b.utilization
+            if u is None:
+                continue
+            if u.status in ("idle", "busy", "offline"):
+                entry[u.status] += 1
+            entry["online"] = u.online_instances
+            entry["queued"] = u.queued_requests
+            entry["processing"] = u.processing_requests
+
+        rows = sorted(summary.values(), key=lambda r: r["board_type"])
+        if show:
+            print(f"{'Board type':<18}{'Online':>8}{'Idle':>6}{'Busy':>6}{'Queued':>8}")
+            print("-" * 46)
+            for r in rows:
+                boards = r["idle"] + r["busy"] + r["offline"]
+                print(f"{r['board_type']:<18}{str(r['online']) + '/' + str(boards):>8}"
+                      f"{r['idle']:>6}{r['busy']:>6}{r['queued']:>8}")
+        return rows
 
     def get_board(self, board_name: str) -> Board:
         """
@@ -468,9 +517,10 @@ class MIMaaSClient:
     def wait_for_completion(
         self,
         request_id: int,
-        timeout: int = 600,
+        timeout: int = 1800,
         poll_interval: int = 5,
-        verbose: bool = False
+        verbose: bool = True,
+        heartbeat_interval: int = 30
     ) -> Results:
         """
         Wait for request to complete (blocking).
@@ -480,7 +530,10 @@ class MIMaaSClient:
             timeout: Maximum time to wait in seconds (default: 600)
             poll_interval: Polling interval in seconds (default: 5)
             verbose: Print each status change (pending -> processing -> done/error)
-                along with elapsed time, so long waits aren't silent (default: False)
+                along with elapsed time and, while waiting, the position in the
+                queue (default: True)
+            heartbeat_interval: With verbose, repeat the status line at least
+                this often (seconds) even if nothing changed (default: 30)
 
         Returns:
             Results object
@@ -490,14 +543,21 @@ class MIMaaSClient:
             ProcessingError: Request failed with error
         """
         start_time = time.time()
-        last_status = None
+        last_state = None
+        last_print = 0.0
 
         while True:
             request = self.get_request(request_id)
 
-            if verbose and request.status != last_status:
-                print(f"[{time.time() - start_time:6.1f}s] Request #{request_id}: {request.status}")
-                last_status = request.status
+            state = (request.status, request.queue_position, request.boards_busy)
+            now = time.time()
+            if verbose and (state != last_state or now - last_print >= heartbeat_interval):
+                line = f"[{time.time() - start_time:6.1f}s] Request #{request_id}: {request.status}"
+                if request.queue_info:
+                    line += f" — {request.queue_info}"
+                print(line)
+                last_state = state
+                last_print = now
 
             if request.is_successful:
                 if request.results:
@@ -510,8 +570,12 @@ class MIMaaSClient:
             # Check timeout
             elapsed = time.time() - start_time
             if elapsed > timeout:
+                detail = f"status: {request.status}"
+                if request.queue_info:
+                    detail += f", {request.queue_info}"
                 raise MIMaaSTimeoutError(
-                    f"Request {request_id} did not complete within {timeout}s (status: {request.status})"
+                    f"Request {request_id} did not complete within {timeout}s ({detail}). "
+                    f"It keeps running on the server; call wait_for_completion({request_id}) again to keep waiting."
                 )
 
             # Wait before next poll

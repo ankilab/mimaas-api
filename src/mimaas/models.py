@@ -35,8 +35,32 @@ class User:
 
 
 @dataclass
+class BoardUtilization:
+    """
+    Live load of a board.
+
+    `status` is for this physical board. The request counts and `online_instances`
+    are for its board type, since all boards of a type share one queue.
+    """
+    status: str               # "idle", "busy", "offline" or "unknown"
+    queued_requests: int      # Requests waiting for this board type
+    processing_requests: int  # Requests currently running on this board type
+    online_instances: int     # Boards of this type that are online
+
+    @classmethod
+    def from_dict(cls, data: dict) -> 'BoardUtilization':
+        """Create BoardUtilization from API response dictionary"""
+        return cls(
+            status=data.get('status', 'unknown'),
+            queued_requests=data.get('queued_requests', 0),
+            processing_requests=data.get('processing_requests', 0),
+            online_instances=data.get('online_instances', 0)
+        )
+
+
+@dataclass
 class Board:
-    """Board type specifications (not individual instances)"""
+    """A physical board and its specifications. Submit requests by `board_type`."""
     name: str
     variant: str
     board_type: str
@@ -44,7 +68,8 @@ class Board:
     ram_size_kb: int
     max_tensor_arena_kb: int
     voltage_mv: int
-    available_count: int  # Number of available board instances
+    available_count: int  # Idle boards of this type (filled in by list_boards)
+    utilization: Optional[BoardUtilization] = None  # None if the server doesn't report it
 
     @property
     def flash_size_bytes(self) -> int:
@@ -60,6 +85,7 @@ class Board:
     def from_dict(cls, data: dict) -> 'Board':
         """Create Board from API response dictionary"""
         specs = data.get('specifications', {})
+        utilization = data.get('utilization')
         return cls(
             name=data['name'],
             variant=data['variant'],
@@ -68,12 +94,13 @@ class Board:
             ram_size_kb=specs.get('ram_size', 0),
             max_tensor_arena_kb=specs.get('max_available_tensor_arena_size', 0),
             voltage_mv=specs.get('voltage', 0),
-            available_count=data.get('available_count', 0)
+            available_count=data.get('available_count', 0),
+            utilization=BoardUtilization.from_dict(utilization) if utilization else None
         )
 
     def __str__(self) -> str:
-        return (
-            f"Board Type: {self.name}\n"
+        text = (
+            f"Board: {self.name} (type: {self.board_type})\n"
             f"  Variant: {self.variant}\n"
             f"  Flash: {self.flash_size_kb} KB\n"
             f"  RAM: {self.ram_size_kb} KB\n"
@@ -81,6 +108,14 @@ class Board:
             f"  Voltage: {self.voltage_mv} mV\n"
             f"  Available: {self.available_count} board(s)"
         )
+        if self.utilization:
+            u = self.utilization
+            text += (
+                f"\n  Status: {u.status}\n"
+                f"  Queue ({self.board_type}): {u.queued_requests} waiting, "
+                f"{u.processing_requests} running on {u.online_instances} online board(s)"
+            )
+        return text
 
 
 @dataclass
@@ -147,6 +182,9 @@ class Request:
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
     results: Optional[Results] = None
+    queue_position: Optional[int] = None  # 1 = next in line; only set while pending
+    boards_busy: Optional[int] = None     # Busy boards of this type; only set while pending
+    boards_online: Optional[int] = None   # Online boards of this type; only set while pending
 
     @property
     def is_complete(self) -> bool:
@@ -193,11 +231,26 @@ class Request:
             error_message=data.get('error_message'),
             created_at=_parse_iso8601(data.get('created_at')),
             updated_at=_parse_iso8601(data.get('updated_at')),
-            results=results
+            results=results,
+            queue_position=data.get('queue_position'),
+            boards_busy=data.get('boards_busy'),
+            boards_online=data.get('boards_online')
         )
+
+    @property
+    def queue_info(self) -> Optional[str]:
+        """Human-readable queue position, e.g. "position 3 in queue for nrf5340dk, 2/2 boards busy"."""
+        if not self.is_pending or self.queue_position is None:
+            return None
+        text = f"position {self.queue_position} in queue for {self.board}"
+        if self.boards_busy is not None and self.boards_online is not None:
+            text += f", {self.boards_busy}/{self.boards_online} boards busy"
+        return text
 
     def __str__(self) -> str:
         status_str = f"Request #{self.id}: {self.status}"
+        if self.queue_info:
+            status_str += f" — {self.queue_info}"
         if self.has_error and self.error_message:
             status_str += f"\n  Error: {self.error_message}"
         elif self.is_successful and self.results:

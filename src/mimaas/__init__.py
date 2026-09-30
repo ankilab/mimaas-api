@@ -18,7 +18,7 @@ __version__ = "0.1.0"
 from .client import MIMaaSClient
 
 # Data models
-from .models import User, Board, Request, Results, Plan
+from .models import User, Board, BoardUtilization, Request, Results, Plan
 
 # Exceptions
 from .exceptions import (
@@ -44,6 +44,7 @@ __all__ = [
     # Data models
     "User",
     "Board",
+    "BoardUtilization",
     "Request",
     "Results",
     "Plan",

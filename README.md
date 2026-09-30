@@ -76,7 +76,13 @@ print(f"Runs remaining: {profile.available_runs}")
 ```python
 boards = client.list_boards()
 for board in boards:
-    print(board)
+    print(board)  # specs + live status and queue length
+
+# How busy is each board type? Requests are queued per type,
+# and the next free board of that type runs them.
+client.board_utilization()
+# Board type          Online  Idle  Busy  Queued
+# nrf5340dk              2/2     0     2       3
 
 # Check a specific board
 board = client.get_board("nrf5340dk")
@@ -95,9 +101,12 @@ request = client.submit_request("model.tflite", "nrf5340dk", quantize=False)
 # Poll manually
 req = client.get_request(request.id)
 print(req.status)  # "pending" | "processing" | "done" | "error"
+print(req.queue_position)  # 1 = next in line; None once it's running
 
-# Or block until done
+# Or block until done (prints status changes and queue position; verbose=False to silence)
 results = client.wait_for_completion(request.id, timeout=600)
+# [   0.0s] Request #42: pending — position 3 in queue for nrf5340dk, 2/2 boards busy
+# [  61.8s] Request #42: processing
 
 # List past requests
 all_requests = client.list_requests()
