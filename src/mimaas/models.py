@@ -125,8 +125,13 @@ class Results:
 
     Note: For detailed memory breakdown, use download_ram_report() and download_rom_report().
     For power measurement details, use download_power_summary() or download_power_samples().
+
+    Note on RAM: ram_usage_bytes is the total static RAM of the benchmark firmware, which
+    is dominated by a fixed-size TFLite Micro tensor arena (~400 KB) rather than by what the
+    model actually needs. It is therefore (near-)identical for every model and must not be
+    used to compare models. Inspect the tensor_arena symbol in download_ram_report() instead.
     """
-    ram_usage_bytes: int      # Total RAM usage from ram.json
+    ram_usage_bytes: int      # Total static RAM from ram.json (dominated by fixed tensor arena)
     rom_usage_bytes: int      # Total ROM/Flash usage from rom.json
     duration_avg_s: float     # Average inference time over 10 runs (seconds)
     avg_power_uW: float       # Average power consumption (microWatts)
