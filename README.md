@@ -43,10 +43,15 @@ Results:
   Inference Time: 12.34 ms
   Energy: 45.67 µJ
   Power: 3702.10 µW
-  RAM: 48.2 KB
+  RAM: 416.3 KB
   Flash: 112.5 KB
 ```
 
+> **Note on RAM:** the reported RAM is the benchmark firmware's total static RAM, which is dominated by a fixed
+> ~400 KB TFLite Micro tensor arena. It is (nearly) the same for every model (e.g. 416.3 KB for models
+> of 4 KB, 90 KB and 182 KB alike), so it does not reflect your model's memory needs and should not be used
+> to compare models. Flash, latency and energy are model-dependent. Use `download_ram_report()` to inspect
+> the `tensor_arena` symbol.
 
 ## Usage
 
